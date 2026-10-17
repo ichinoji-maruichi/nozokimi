@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>のぞきこみくん</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eceff3; --ink:#18202c; --muted:#5a6575; --panel:#f8f9fb; --line:#cdd3dc;
+  --accent:#0f7f86; --accent-ink:#ffffff; --deep:#0b0f17;
+  color-scheme:light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#141922; --ink:#e7ebf1; --muted:#9aa5b5; --panel:#1d2430; --line:#323c4b;
+    --accent:#5cc6cb; --accent-ink:#06282a; --deep:#05070b; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141922; --ink:#e7ebf1; --muted:#9aa5b5; --panel:#1d2430; --line:#323c4b;
+  --accent:#5cc6cb; --accent-ink:#06282a; --deep:#05070b; color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",system-ui,sans-serif;font-weight:500;font-size:15px;line-height:1.6}
+header{max-width:1180px;margin:0 auto;padding:20px 20px 0}
+h1{margin:0;font-weight:900;font-size:clamp(26px,5vw,36px);line-height:1.2}
+header p{margin:4px 0 0;color:var(--muted)}
+.layout{display:grid;grid-template-columns:1fr;gap:20px;max-width:1180px;margin:0 auto;padding:16px 20px 32px}
+@media (min-width:880px){.layout{grid-template-columns:1fr 300px;align-items:start}}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.win{position:relative;max-width:100%;border-radius:18px;overflow:hidden;background:var(--deep);box-shadow:0 0 0 6px var(--deep),0 24px 50px -24px rgba(0,0,0,.6)}
+.win canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.win.dragover{outline:3px dashed var(--accent);outline-offset:10px}
+.rec{position:absolute;top:12px;left:12px;background:rgba(200,30,40,.9);color:#fff;font-size:13px;padding:2px 10px;border-radius:12px}
+.hint{margin:0;color:var(--muted);font-size:13px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:18px}
+.group h2{font-size:13px;margin:0 0 8px;color:var(--muted);font-weight:900}
+.file-btn{display:block;text-align:center;padding:12px;border:2px dashed var(--line);border-radius:10px;cursor:pointer;font-weight:900}
+.file-btn:hover,.file-btn:focus-within{border-color:var(--accent);color:var(--accent)}
+.file-btn input{position:absolute;opacity:0;width:1px;height:1px}
+.status{font-size:13px;color:var(--muted);margin:-6px 0 0;min-height:1.6em}
+.status.warn{color:var(--ink)}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;margin-bottom:10px}
+.row label{font-size:14px}
+.row output{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent)}
+.check{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:8px}
+.check input{accent-color:var(--accent);width:18px;height:18px}
+.seg{display:flex;gap:6px;margin-bottom:10px}
+.seg button{flex:1}
+.btn{appearance:none;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:10px;padding:9px 12px;font:inherit;cursor:pointer}
+.btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:900;width:100%;padding:12px}
+.btn:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:20px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
+.toast.show{opacity:1}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>のぞきこみくん</h1>
+  <p>イラストを奥行きのある箱庭に。動かすと斜めから覗けます。</p>
+</header>
+<main class="layout">
+  <section class="stage">
+    <div class="win" id="win"><canvas id="view" aria-label="立体表示"></canvas><div class="rec" id="rec" hidden>録画中</div></div>
+    <p class="hint">絵の上でカーソルを動かすか、指でなぞると視点が動きます</p>
+  </section>
+  <aside class="panel">
+    <label class="file-btn">画像をえらぶ（ドロップも可）<input type="file" id="file" accept="image/*"></label>
+    <p class="status" id="status" role="status"></p>
+
+    <div class="group">
+      <h2>立体</h2>
+      <div class="row"><label for="pDepth">奥行きの強さ</label><output id="oDepth"></output><input type="range" id="pDepth" min="0.05" max="0.7" step="0.01" value="0.28"></div>
+      <div class="row"><label for="pAngle">回り込みの範囲</label><output id="oAngle"></output><input type="range" id="pAngle" min="5" max="35" step="1" value="22"></div>
+      <div class="row"><label for="pTear">切り離しの感度</label><output id="oTear"></output><input type="range" id="pTear" min="0.02" max="0.3" step="0.01" value="0.08"></div>
+    </div>
+
+    <div class="group">
+      <h2>操作</h2>
+      <label class="check"><input type="checkbox" id="auto" checked>触っていないときは自動でゆらす</label>
+      <label class="check"><input type="checkbox" id="showDepth">奥行きマップを表示</label>
+      <button class="btn" id="gyro" hidden>スマホの傾きで動かす</button>
+    </div>
+
+    <div class="group">
+      <h2>動画</h2>
+      <div class="seg" role="group" aria-label="動画の長さ">
+        <button class="btn" data-sec="3" aria-pressed="false">3秒</button>
+        <button class="btn" data-sec="5" aria-pressed="true">5秒</button>
+        <button class="btn" data-sec="8" aria-pressed="false">8秒</button>
+      </div>
+      <button class="btn primary" id="recBtn">動画を書き出す</button>
+    </div>
+  </aside>
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const canvas = $('#view'), win = $('#win');
+const WORK = 512, FULL = 1600, FOV = 30, ZOOM = 1.08;
+const DIST = 0.5 / Math.tan(THREE.MathUtils.degToRad(FOV/2));
+
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setClearColor(0x000000, 1);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(FOV, 1, 0.01, 20);
+const group = new THREE.Group(); scene.add(group);
+
+const P = {depth:0.28, angle:22, tear:0.08};
+let aspect = 1, title = '', work = null, loadToken = 0;
+let fgMesh = null, bgMesh = null;
+const tex = {fg:null, bg:null, fgD:null, bgD:null};
+
+// ---------- ステータス・トースト ----------
+function status(msg, warn){ const s=$('#status'); s.textContent = msg; s.classList.toggle('warn', !!warn); }
+let toastTimer;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
+
+// ---------- 画像処理ユーティリティ ----------
+function scaledCanvas(src, maxSide, flatten){
+  const w0 = src.naturalWidth || src.width, h0 = src.naturalHeight || src.height;
+  const s = Math.min(1, maxSide / Math.max(w0, h0));
+  const c = document.createElement('canvas'); c.width = Math.max(2, Math.round(w0*s)); c.height = Math.max(2, Math.round(h0*s));
+  const g = c.getContext('2d');
+  if (flatten){ g.fillStyle = '#fff'; g.fillRect(0,0,c.width,c.height); }
+  g.drawImage(src, 0, 0, c.width, c.height);
+  return c;
+}
+function normalize(d){
+  const n = d.length, step = Math.max(1, Math.floor(n/20000)), samp = [];
+  for (let i=0;i<n;i+=step) samp.push(d[i]);
+  samp.sort((a,b)=>a-b);
+  const lo = samp[Math.floor(samp.length*0.02)], hi = samp[Math.floor(samp.length*0.98)];
+  const r = Math.max(1e-6, hi-lo), out = new Float32Array(n);
+  for (let i=0;i<n;i++) out[i] = Math.min(1, Math.max(0, (d[i]-lo)/r));
+  return out;
+}
+function resample(src, sw, sh, ch, dw, dh){
+  const out = new Float32Array(dw*dh);
+  for (let y=0;y<dh;y++){ const fy = (y+0.5)*sh/dh-0.5, y0 = Math.max(0,Math.floor(fy)), y1 = Math.min(sh-1,y0+1), ty = Math.min(1,Math.max(0,fy-y0));
+    for (let x=0;x<dw;x++){ const fx = (x+0.5)*sw/dw-0.5, x0 = Math.max(0,Math.floor(fx)), x1 = Math.min(sw-1,x0+1), tx = Math.min(1,Math.max(0,fx-x0));
+      const a = src[(y0*sw+x0)*ch], b = src[(y0*sw+x1)*ch], c = src[(y1*sw+x0)*ch], d = src[(y1*sw+x1)*ch];
+      out[y*dw+x] = (a*(1-tx)+b*tx)*(1-ty) + (c*(1-tx)+d*tx)*ty; } }
+  return out;
+}
+function boxBlur(a, w, h, r){
+  const tmp = new Float32Array(a.length), out = new Float32Array(a.length);
+  for (let y=0;y<h;y++){ let s=0; for (let x=-r;x<=r;x++) s += a[y*w+Math.min(w-1,Math.max(0,x))];
+    for (let x=0;x<w;x++){ tmp[y*w+x] = s/(2*r+1); s += a[y*w+Math.min(w-1,x+r+1)] - a[y*w+Math.max(0,x-r)]; } }
+  for (let x=0;x<w;x++){ let s=0; for (let y=-r;y<=r;y++) s += tmp[Math.min(h-1,Math.max(0,y))*w+x];
+    for (let y=0;y<h;y++){ out[y*w+x] = s/(2*r+1); s += tmp[Math.min(h-1,y+r+1)*w+x] - tmp[Math.max(0,y-r)*w+x]; } }
+  return out;
+}
+function minFilter(a, w, h, r){
+  const tmp = new Float32Array(a.length), out = new Float32Array(a.length);
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){ let m=1e9; const x0=Math.max(0,x-r), x1=Math.min(w-1,x+r);
+    for (let k=x0;k<=x1;k++){ const v=a[y*w+k]; if (v<m) m=v; } tmp[y*w+x]=m; }
+  for (let x=0;x<w;x++) for (let y=0;y<h;y++){ let m=1e9; const y0=Math.max(0,y-r), y1=Math.min(h-1,y+r);
+    for (let k=y0;k<=y1;k++){ const v=tmp[k*w+x]; if (v<m) m=v; } out[y*w+x]=m; }
+  return out;
+}
+function dilate(m, w, h, r){
+  const out = new Uint8Array(m.length);
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){ if (!m[y*w+x]) continue;
+    for (let dy=-r;dy<=r;dy++) for (let dx=-r;dx<=r;dx++){ const xx=x+dx, yy=y+dy; if (xx>=0&&yy>=0&&xx<w&&yy<h) out[yy*w+xx]=1; } }
+  return out;
+}
+// 穴埋め（push-pull）：色と奥行きを周りから補う
+function pushPull(rgba, d, mask, w, h){
+  const levels = [];
+  let Pv = new Float32Array(w*h*4), Wv = new Float32Array(w*h);
+  for (let i=0;i<w*h;i++) if (!mask[i]){ Wv[i]=1; Pv[i*4]=rgba[i*4]; Pv[i*4+1]=rgba[i*4+1]; Pv[i*4+2]=rgba[i*4+2]; Pv[i*4+3]=d[i]; }
+  levels.push({w,h,P:Pv,W:Wv});
+  let cw=w, ch=h;
+  while (cw>1 || ch>1){
+    const nw=Math.max(1,Math.ceil(cw/2)), nh=Math.max(1,Math.ceil(ch/2));
+    const L=levels[levels.length-1], nP=new Float32Array(nw*nh*4), nW=new Float32Array(nw*nh);
+    for (let y=0;y<nh;y++) for (let x=0;x<nw;x++){
+      let sw=0, s0=0,s1=0,s2=0,s3=0;
+      for (let dy=0;dy<2;dy++) for (let dx=0;dx<2;dx++){ const sx=Math.min(cw-1,2*x+dx), sy=Math.min(ch-1,2*y+dy), j=sy*cw+sx;
+        sw+=L.W[j]; s0+=L.P[j*4]; s1+=L.P[j*4+1]; s2+=L.P[j*4+2]; s3+=L.P[j*4+3]; }
+      const i=y*nw+x;
+      if (sw>0){ const a=Math.min(1,sw); nW[i]=a; nP[i*4]=s0/sw*a; nP[i*4+1]=s1/sw*a; nP[i*4+2]=s2/sw*a; nP[i*4+3]=s3/sw*a; }
+    }
+    levels.push({w:nw,h:nh,P:nP,W:nW}); cw=nw; ch=nh;
+  }
+  const top = levels[levels.length-1];
+  if (top.W[0] < 1){ const a=top.W[0]; for (let k=0;k<4;k++) top.P[k] = a>0 ? top.P[k]/a : (k<3?200:0); top.W[0]=1; }
+  for (let l=levels.length-2;l>=0;l--){
+    const L=levels[l], Up=levels[l+1];
+    for (let y=0;y<L.h;y++) for (let x=0;x<L.w;x++){
+      const i=y*L.w+x, a=L.W[i]; if (a>=1) continue;
+      const fx=Math.min(Up.w-1,Math.max(0,(x+0.5)/2-0.5)), fy=Math.min(Up.h-1,Math.max(0,(y+0.5)/2-0.5));
+      const x0=Math.floor(fx), y0=Math.floor(fy), x1=Math.min(Up.w-1,x0+1), y1=Math.min(Up.h-1,y0+1), tx=fx-x0, ty=fy-y0;
+      for (let k=0;k<4;k++){
+        const v=(Up.P[(y0*Up.w+x0)*4+k]*(1-tx)+Up.P[(y0*Up.w+x1)*4+k]*tx)*(1-ty)+(Up.P[(y1*Up.w+x0)*4+k]*(1-tx)+Up.P[(y1*Up.w+x1)*4+k]*tx)*ty;
+        L.P[i*4+k] = L.P[i*4+k] + v*(1-a);
+      }
+      L.W[i]=1;
+    }
+  }
+  const out = new Uint8ClampedArray(w*h*4), od = new Float32Array(w*h);
+  for (let i=0;i<w*h;i++){ out[i*4]=levels[0].P[i*4]; out[i*4+1]=levels[0].P[i*4+1]; out[i*4+2]=levels[0].P[i*4+2]; out[i*4+3]=255; od[i]=levels[0].P[i*4+3]; }
+  return {rgba:out, d:od};
+}
+
+// ---------- 奥行き推定 ----------
+function pseudoDepth(rgba, w, h){
+  let hasAlpha = false;
+  for (let i=3;i<rgba.length;i+=16) if (rgba[i] < 250){ hasAlpha = true; break; }
+  const fg = new Float32Array(w*h);
+  if (hasAlpha){ for (let i=0;i<w*h;i++) fg[i] = rgba[i*4+3]/255; }
+  else {
+    let r=0,g=0,b=0,n=0;
+    const add = i => { r+=rgba[i*4]; g+=rgba[i*4+1]; b+=rgba[i*4+2]; n++; };
+    for (let x=0;x<w;x++){ add(x); add((h-1)*w+x); } for (let y=0;y<h;y++){ add(y*w); add(y*w+w-1); }
+    r/=n; g/=n; b/=n;
+    for (let i=0;i<w*h;i++){ const dr=rgba[i*4]-r, dg=rgba[i*4+1]-g, db=rgba[i*4+2]-b;
+      fg[i] = Math.min(1, Math.sqrt(dr*dr+dg*dg+db*db)/90); }
+  }
+  const fb = boxBlur(boxBlur(fg,w,h,4),w,h,4), d = new Float32Array(w*h);
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){ const i=y*w+x; d[i] = 0.3*(y/(h-1)) + 0.7*Math.min(1, fb[i]*1.3); }
+  return normalize(d);
+}
+let depthPipe = null;
+async function aiDepth(cv, onProg){
+  if (!depthPipe){
+    const T = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.6');
+    T.env.allowLocalModels = false;
+    const files = {};
+    const opts = device => ({device, progress_callback: e => {
+      if (e.status === 'progress' && e.total){ files[e.file] = [e.loaded, e.total];
+        let l=0, t=0; for (const k in files){ l+=files[k][0]; t+=files[k][1]; } onProg(Math.round(l/t*100)); } }});
+    try { depthPipe = await T.pipeline('depth-estimation', 'onnx-community/depth-anything-v2-small', opts(navigator.gpu ? 'webgpu' : 'wasm')); }
+    catch (e) { if (!navigator.gpu) throw e; depthPipe = await T.pipeline('depth-estimation', 'onnx-community/depth-anything-v2-small', opts('wasm')); }
+  }
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+  const url = URL.createObjectURL(blob);
+  try {
+    const out = await depthPipe(url);
+    const di = out.depth;
+    return normalize(resample(di.data, di.width, di.height, di.channels || 1, cv.width, cv.height));
+  } finally { URL.revokeObjectURL(url); }
+}
+
+// ---------- メッシュ生成 ----------
+function canvasFrom(rgba, w, h){ const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').putImageData(new ImageData(rgba,w,h),0,0); return c; }
+function depthCanvas(d, w, h){ const a=new Uint8ClampedArray(w*h*4); for (let i=0;i<w*h;i++){ const v=d[i]*255; a[i*4]=v; a[i*4+1]=v; a[i*4+2]=v; a[i*4+3]=255; } return canvasFrom(a,w,h); }
+function texFrom(c){ const t=new THREE.CanvasTexture(c); t.minFilter=THREE.LinearFilter; t.generateMipmaps=false; t.anisotropy=4; return t; }
+function makeGrid(d, w, h, ext, step, tear){
+  const u0=-ext, u1=1+ext;
+  const nx = Math.max(2, Math.round((w-1)*(u1-u0)/step)+1), ny = Math.max(2, Math.round((h-1)*(u1-u0)/step)+1);
+  const pos = new Float32Array(nx*ny*3), uv = new Float32Array(nx*ny*2), dz = new Float32Array(nx*ny);
+  for (let iy=0;iy<ny;iy++) for (let ix=0;ix<nx;ix++){
+    const u=u0+(u1-u0)*ix/(nx-1), v=u0+(u1-u0)*iy/(ny-1), i=iy*nx+ix;
+    const px=Math.min(w-1,Math.max(0,Math.round(u*(w-1)))), py=Math.min(h-1,Math.max(0,Math.round(v*(h-1))));
+    const z=d[py*w+px]; dz[i]=z;
+    pos[i*3]=(u-0.5)*aspect; pos[i*3+1]=0.5-v; pos[i*3+2]=z-0.5;
+    uv[i*2]=u; uv[i*2+1]=1-v;
+  }
+  const idx = [];
+  // 奥行きの段差（2px幅で見る）がある頂点を含む三角形は張らない＝切り離す
+  let E = null;
+  if (tear && nx === w && ny === h){
+    E = new Uint8Array(w*h); const k = 2;
+    for (let y=0;y<h;y++) for (let x=0;x<w;x++){ const i=y*w+x, v=d[i];
+      const xa=Math.max(0,x-k), xb=Math.min(w-1,x+k), ya=Math.max(0,y-k), yb=Math.min(h-1,y+k);
+      const m = Math.max(Math.abs(d[y*w+xa]-d[y*w+xb]), Math.abs(d[ya*w+x]-d[yb*w+x]));
+      if (m > tear) E[i] = 1; }
+  }
+  const ok = (a,b,c) => !E || !(E[a]||E[b]||E[c]);
+  for (let iy=0;iy<ny-1;iy++) for (let ix=0;ix<nx-1;ix++){
+    const a=iy*nx+ix, b=a+1, c=a+nx, e=c+1;
+    if (ok(a,c,b)) idx.push(a,c,b);
+    if (ok(b,c,e)) idx.push(b,c,e);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv,2));
+  g.setIndex(new THREE.BufferAttribute(new Uint32Array(idx),1));
+  return g;
+}
+function disposeMesh(m){ if (!m) return; group.remove(m); m.geometry.dispose(); m.material.dispose(); }
+
+function build(){
+  if (!work) return;
+  const {w, h, rgba, d} = work;
+  // 穴埋めの元を「奥にある画素」だけにするため、近い側の画素を2つの範囲で広めに除外する
+  const side = Math.max(w,h);
+  const dmin1 = minFilter(d, w, h, Math.max(4, Math.round(side*0.06)));
+  const dmin2 = minFilter(d, w, h, Math.max(8, Math.round(side*0.16)));
+  let mask = new Uint8Array(w*h);
+  for (let i=0;i<w*h;i++) mask[i] = (d[i] > dmin1[i] + P.tear*0.7 || d[i] > dmin2[i] + P.tear*1.6) ? 1 : 0;
+  mask = dilate(mask, w, h, 3);
+  const filled = pushPull(rgba, d, mask, w, h);
+  const bgd = boxBlur(filled.d, w, h, 2);
+  for (const k of ['bg','fgD','bgD']) if (tex[k]) tex[k].dispose();
+  tex.bg = texFrom(canvasFrom(filled.rgba, w, h));
+  tex.fgD = texFrom(depthCanvas(d, w, h));
+  tex.bgD = texFrom(depthCanvas(bgd, w, h));
+  disposeMesh(fgMesh); disposeMesh(bgMesh);
+  fgMesh = new THREE.Mesh(makeGrid(d, w, h, 0, 1, P.tear), new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
+  bgMesh = new THREE.Mesh(makeGrid(bgd, w, h, 0.15, 2, 0), new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
+  bgMesh.position.z = -0.004;
+  group.add(bgMesh, fgMesh);
+  applyMaps(); applyDepth();
+}
+function applyMaps(){
+  if (!fgMesh) return;
+  const sd = $('#showDepth').checked;
+  fgMesh.material.map = sd ? tex.fgD : tex.fg; bgMesh.material.map = sd ? tex.bgD : tex.bg;
+  fgMesh.material.needsUpdate = bgMesh.material.needsUpdate = true;
+}
+function applyDepth(){ if (fgMesh){ fgMesh.scale.z = P.depth; bgMesh.scale.z = P.depth; } }
+
+// ---------- 読み込み ----------
+async function load(src, name, presetDepthCanvas){
+  const token = ++loadToken;
+  title = name;
+  const full = scaledCanvas(src, FULL, true);
+  const wc = scaledCanvas(src, WORK, true);
+  const raw = scaledCanvas(src, WORK, false);
+  aspect = full.width / full.height;
+  if (tex.fg) tex.fg.dispose();
+  tex.fg = texFrom(full);
+  const w = wc.width, h = wc.height;
+  const rgba = wc.getContext('2d').getImageData(0,0,w,h).data;
+  layout();
+  if (presetDepthCanvas){
+    const dc = scaledCanvas(presetDepthCanvas, WORK, true);
+    const dd = dc.getContext('2d').getImageData(0,0,dc.width,dc.height).data;
+    work = {w, h, rgba, d: normalize(resample(dd, dc.width, dc.height, 4, w, h))};
+    build(); status('見本は奥行きデータ付きです。自分の画像はAIで奥行きを推定します。');
+    return;
+  }
+  work = {w, h, rgba, d: pseudoDepth(raw.getContext('2d').getImageData(0,0,w,h).data, w, h)};
+  build();
+  status('簡易の奥行きで表示中。AIで推定しています…');
+  try {
+    const d = await aiDepth(wc, p => { if (token===loadToken) status(`AIモデルを読み込み中… ${p}%（初回のみ）`); });
+    if (token !== loadToken) return;
+    work.d = boxBlur(d, work.w, work.h, 1); build(); status('AIで推定した奥行きで表示中');
+  } catch (e) {
+    console.warn(e);
+    if (token !== loadToken) return;
+    status('この環境ではAIの奥行き推定を使えないので、簡易の奥行きで表示しています。GitHub Pages などに置くとAI推定が使えます。', true);
+  }
+}
+function loadFile(file){
+  if (!file || !file.type.startsWith('image/')){ toast('画像ファイルをえらんでください'); return; }
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => { load(img, file.name.replace(/\.[^.]+$/,'') || '無題'); URL.revokeObjectURL(url); };
+  img.onerror = () => toast('この画像は読み込めませんでした');
+  img.src = url;
+}
+$('#file').addEventListener('change', e => loadFile(e.target.files[0]));
+['dragenter','dragover'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); win.classList.add('dragover'); }));
+['dragleave','drop'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); win.classList.remove('dragover'); }));
+document.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+
+// ---------- 表示サイズ ----------
+let recording = null;
+function layout(){
+  win.style.width = `min(100%, calc(min(70vh, 780px) * ${aspect}))`;
+  win.style.aspectRatio = `${aspect}`;
+  resize();
+}
+function resize(){
+  if (recording) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(2, Math.round(win.clientWidth*dpr)), h = Math.max(2, Math.round(win.clientWidth/aspect*dpr));
+  renderer.setSize(w, h, false);
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(win);
+
+// ---------- 視点 ----------
+let yaw=0, pitch=0, tyaw=0, tpitch=0, manualUntil=0, gyroOn=false;
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+function onPoint(e){
+  const r = canvas.getBoundingClientRect();
+  tyaw = clamp(((e.clientX-r.left)/r.width)*2-1, -1, 1);
+  tpitch = clamp(-(((e.clientY-r.top)/r.height)*2-1), -1, 1);
+  manualUntil = performance.now() + 2500;
+}
+canvas.addEventListener('pointermove', e => { if (e.pointerType==='mouse' || e.buttons) onPoint(e); });
+canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); onPoint(e); });
+canvas.addEventListener('pointerleave', e => { if (e.pointerType==='mouse'){ manualUntil = performance.now() + 800; } });
+
+const gyroBtn = $('#gyro');
+if ('DeviceOrientationEvent' in window && matchMedia('(pointer:coarse)').matches) gyroBtn.hidden = false;
+gyroBtn.addEventListener('click', async () => {
+  try {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function'){
+      if (await DeviceOrientationEvent.requestPermission() !== 'granted'){ toast('傾きセンサーが使えませんでした'); return; }
+    }
+    if (!gyroOn){
+      window.addEventListener('deviceorientation', e => {
+        if (e.gamma == null) return;
+        tyaw = clamp(e.gamma/25, -1, 1); tpitch = clamp(-(e.beta-45)/25, -1, 1);
+        manualUntil = performance.now() + 2500;
+      });
+      gyroOn = true; toast('スマホを傾けてみてください');
+    }
+  } catch { toast('傾きセンサーが使えませんでした'); }
+});
+
+const autoEl = $('#auto');
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) autoEl.checked = false;
+function setCamera(){
+  const A = THREE.MathUtils.degToRad(P.angle), y = yaw*A, p = pitch*A*0.7, dist = DIST/ZOOM;
+  camera.position.set(dist*Math.sin(y)*Math.cos(p), dist*Math.sin(p), dist*Math.cos(y)*Math.cos(p));
+  camera.lookAt(0,0,0);
+}
+function loop(now){
+  if (recording){
+    const u = Math.min(1, (now - recording.start) / recording.ms);
+    yaw = Math.sin(u*Math.PI*2)*0.9; pitch = Math.sin(u*Math.PI*4)*0.4;
+    if (u >= 1 && recording.rec.state === 'recording') recording.rec.stop();
+  } else {
+    if (autoEl.checked && now > manualUntil){ const t=now*0.001; tyaw=Math.sin(t*0.6)*0.8; tpitch=Math.sin(t*1.2)*0.35; }
+    yaw += (tyaw-yaw)*0.12; pitch += (tpitch-pitch)*0.12;
+  }
+  setCamera();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ---------- スライダー ----------
+const bind = (id, out, key, fmt, after) => {
+  const el = $(id), o = $(out);
+  const show = () => o.textContent = fmt(P[key]);
+  P[key] = parseFloat(el.value); show();
+  el.addEventListener('input', () => { P[key] = parseFloat(el.value); show(); after && after(); });
+};
+let tearTimer;
+bind('#pDepth', '#oDepth', 'depth', v => v.toFixed(2), applyDepth);
+bind('#pAngle', '#oAngle', 'angle', v => `±${v}°`);
+bind('#pTear', '#oTear', 'tear', v => v.toFixed(2), () => { clearTimeout(tearTimer); tearTimer = setTimeout(build, 120); });
+$('#showDepth').addEventListener('change', applyMaps);
+
+// ---------- 動画書き出し ----------
+let sec = 5;
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x===b)); sec = +b.dataset.sec;
+}));
+const inViewer = !!(window.claude && typeof window.claude.use === 'function');
+const dlPromise = inViewer ? window.claude.use('downloads').catch(() => null) : null;
+async function saveFile(name, blob){
+  if (dlPromise){
+    const dl = await dlPromise;
+    if (!dl){ toast('このページでは保存できません'); return; }
+    try { await dl.save({filename:name, data:blob}); toast('保存しました'); }
+    catch(e){ if (e && e.code !== 'declined') toast('保存できませんでした'); }
+  } else {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast('保存しました');
+  }
+}
+$('#recBtn').addEventListener('click', () => {
+  if (recording || !fgMesh) return;
+  if (!window.MediaRecorder || !canvas.captureStream){ toast('このブラウザは動画の書き出しに対応していません'); return; }
+  const type = ['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm'].find(t => MediaRecorder.isTypeSupported(t));
+  if (!type){ toast('このブラウザは動画の書き出しに対応していません'); return; }
+  const ext = type.startsWith('video/mp4') ? 'mp4' : 'webm';
+  const L = 1080, ew = aspect>=1 ? L : Math.round(L*aspect/2)*2, eh = aspect>=1 ? Math.round(L/aspect/2)*2 : L;
+  renderer.setSize(ew, eh, false); camera.aspect = ew/eh; camera.updateProjectionMatrix();
+  const stream = canvas.captureStream(30);
+  const rec = new MediaRecorder(stream, {mimeType:type, videoBitsPerSecond:10_000_000});
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    recording = null; $('#rec').hidden = true; $('#recBtn').disabled = false; $('#recBtn').textContent = '動画を書き出す';
+    resize();
+    const blob = new Blob(chunks, {type});
+    if (!blob.size){ toast('動画を書き出せませんでした'); return; }
+    await saveFile(`${title}_のぞきこみ.${ext}`, blob);
+  };
+  recording = {rec, start: performance.now(), ms: sec*1000};
+  $('#rec').hidden = false; $('#recBtn').disabled = true; $('#recBtn').textContent = `録画中…（${sec}秒）`;
+  rec.start(200);
+});
+
+// ---------- 見本 ----------
+function sample(){
+  const W=1000, H=750;
+  const mk = () => { const c=document.createElement('canvas'); c.width=W; c.height=H; return c; };
+  const col = mk(), dep = mk();
+  const draw = (g, D) => {
+    const grey = v => { const n=Math.round(v*255); return `rgb(${n},${n},${n})`; };
+    const fill = (c, v) => g.fillStyle = D ? grey(v) : c;
+    let gr;
+    if (D){ g.fillStyle='#000'; } else { gr=g.createLinearGradient(0,0,0,500); gr.addColorStop(0,'#86c3f2'); gr.addColorStop(1,'#ffe4c2'); g.fillStyle=gr; }
+    g.fillRect(0,0,W,H);
+    fill('#fff4b8',0.02); g.beginPath(); g.arc(800,150,60,0,7); g.fill();
+    fill('#ffffff',0.06); [[180,120,50],[240,110,60],[300,125,45]].forEach(([x,y,r])=>{ g.beginPath(); g.arc(x,y,r,0,7); g.fill(); });
+    fill('#7d97c4',0.16); g.beginPath(); g.moveTo(0,420); g.lineTo(160,250); g.lineTo(330,400); g.lineTo(520,230); g.lineTo(740,410); g.lineTo(880,300); g.lineTo(1000,380); g.lineTo(1000,750); g.lineTo(0,750); g.fill();
+    fill('#93c47d',0.32); g.beginPath(); g.moveTo(0,470); for (let x=0;x<=1000;x+=20) g.lineTo(x, 470+Math.sin(x*0.008)*30); g.lineTo(1000,750); g.lineTo(0,750); g.fill();
+    fill('#7a5234',0.5); g.fillRect(150,330,30,190);
+    if (D){ gr=g.createRadialGradient(165,300,10,165,300,110); gr.addColorStop(0,grey(0.6)); gr.addColorStop(1,grey(0.48)); g.fillStyle=gr; } else g.fillStyle='#4f8a4b';
+    g.beginPath(); g.arc(165,300,110,0,7); g.fill();
+    if (D){ gr=g.createLinearGradient(0,560,0,750); gr.addColorStop(0,grey(0.55)); gr.addColorStop(1,grey(0.75)); g.fillStyle=gr; } else g.fillStyle='#6fb05a';
+    g.beginPath(); g.moveTo(0,580); for (let x=0;x<=1000;x+=20) g.lineTo(x, 575+Math.sin(x*0.012+1)*12); g.lineTo(1000,750); g.lineTo(0,750); g.fill();
+    if (!D){ for (let i=0;i<70;i++){ const x=(i*137)%1000, y=600+((i*61)%140); g.fillStyle=['#ff6b81','#ffd166','#ffffff'][i%3]; g.beginPath(); g.arc(x,y,6,0,7); g.fill(); } }
+    // まんまるキャラ
+    if (D){ gr=g.createRadialGradient(560,430,20,560,470,170); gr.addColorStop(0,grey(1)); gr.addColorStop(1,grey(0.82)); g.fillStyle=gr; } else g.fillStyle='#fffaf2';
+    g.beginPath(); g.ellipse(560,480,150,140,0,0,7); g.fill();
+    if (!D){ g.lineWidth=7; g.strokeStyle='#3a3340'; g.stroke();
+      g.fillStyle='#3a3340'; g.beginPath(); g.ellipse(510,465,14,20,0,0,7); g.ellipse(610,465,14,20,0,0,7); g.fill();
+      g.fillStyle='#ffb3b3'; g.beginPath(); g.ellipse(475,510,22,12,0,0,7); g.ellipse(645,510,22,12,0,0,7); g.fill();
+      g.strokeStyle='#3a3340'; g.lineWidth=6; g.beginPath(); g.arc(560,500,18,0.2,Math.PI-0.2); g.stroke(); }
+    fill('#5fae4f',0.86); g.beginPath(); g.ellipse(590,330,22,48,0.7,0,7); g.fill();
+  };
+  draw(col.getContext('2d'), false); draw(dep.getContext('2d'), true);
+  return {col, dep};
+}
+const s = sample();
+load(s.col, 'まんまるの丘（見本）', s.dep);
+})();
+</script>
+</body>
+</html>
