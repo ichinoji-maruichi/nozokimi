@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>のぞきこみくん</title>
+<title>とびだすえほん</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;900&display=swap" rel="stylesheet">
@@ -62,39 +62,61 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .toast.show{opacity:1}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
+.seg{flex-wrap:wrap}
+.seg button{min-width:56px;padding:8px 6px}
+.btn.sub{width:100%}
 </style>
 </head>
 <body>
 <header>
-  <h1>のぞきこみくん</h1>
-  <p>イラストを奥行きのある箱庭に。動かすと斜めから覗けます。</p>
+  <h1>とびだすえほん</h1>
+  <p>イラストを奥行きで何枚かの層に切り分けて、飛び出す絵本にします。</p>
 </header>
 <main class="layout">
   <section class="stage">
-    <div class="win" id="win"><canvas id="view" aria-label="立体表示"></canvas><div class="rec" id="rec" hidden>録画中</div></div>
-    <p class="hint">絵の上でカーソルを動かすか、指でなぞると視点が動きます</p>
+    <div class="win" id="win"><canvas id="view" aria-label="飛び出す絵本の表示"></canvas><div class="rec" id="rec" hidden>録画中</div></div>
+    <p class="hint">絵の上でカーソルを動かすか、指でなぞると回り込めます</p>
   </section>
   <aside class="panel">
     <label class="file-btn">画像をえらぶ（ドロップも可）<input type="file" id="file" accept="image/*"></label>
     <p class="status" id="status" role="status"></p>
 
     <div class="group">
-      <h2>立体</h2>
-      <div class="row"><label for="pDepth">奥行きの強さ</label><output id="oDepth"></output><input type="range" id="pDepth" min="0.05" max="0.7" step="0.01" value="0.28"></div>
-      <div class="row"><label for="pAngle">回り込みの範囲</label><output id="oAngle"></output><input type="range" id="pAngle" min="5" max="35" step="1" value="22"></div>
-      <div class="row"><label for="pTear">切り離しの感度</label><output id="oTear"></output><input type="range" id="pTear" min="0.02" max="0.3" step="0.01" value="0.08"></div>
+      <h2>層</h2>
+      <div class="row"><label for="pLayers">層の数</label><output id="oLayers"></output><input type="range" id="pLayers" min="2" max="8" step="1" value="5"></div>
+      <div class="row"><label for="pDepth">層の間隔</label><output id="oDepth"></output><input type="range" id="pDepth" min="0.1" max="1.2" step="0.02" value="0.5"></div>
+      <div class="row"><label for="pRim">白いふち</label><output id="oRim"></output><input type="range" id="pRim" min="0" max="6" step="1" value="2"></div>
+      <div class="row"><label for="pAngle">回り込みの範囲</label><output id="oAngle"></output><input type="range" id="pAngle" min="5" max="45" step="1" value="30"></div>
+      <button class="btn sub" id="reopen">もう一度ひらく</button>
+    </div>
+
+    <div class="group">
+      <h2>演出</h2>
+      <div class="row"><label for="pBlur">ぼかし</label><output id="oBlur"></output><input type="range" id="pBlur" min="0" max="1" step="0.05" value="0"></div>
+      <div class="row"><label for="pFocus">ピントの位置（奥〜手前）</label><output id="oFocus"></output><input type="range" id="pFocus" min="0" max="1" step="0.05" value="1"></div>
+      <div class="seg" role="radiogroup" aria-label="パーティクル" id="pSeg">
+        <button class="btn" data-p="none" aria-pressed="true">なし</button>
+        <button class="btn" data-p="sakura" aria-pressed="false">桜</button>
+        <button class="btn" data-p="snow" aria-pressed="false">雪</button>
+        <button class="btn" data-p="confetti" aria-pressed="false">紙吹雪</button>
+        <button class="btn" data-p="kira" aria-pressed="false">きらきら</button>
+      </div>
+      <div class="row"><label for="pAmount">パーティクルの量</label><output id="oAmount"></output><input type="range" id="pAmount" min="20" max="600" step="10" value="200"></div>
     </div>
 
     <div class="group">
       <h2>操作</h2>
       <label class="check"><input type="checkbox" id="auto" checked>触っていないときは自動でゆらす</label>
-      <label class="check"><input type="checkbox" id="showDepth">奥行きマップを表示</label>
       <button class="btn" id="gyro" hidden>スマホの傾きで動かす</button>
     </div>
 
     <div class="group">
       <h2>動画</h2>
-      <div class="seg" role="group" aria-label="動画の長さ">
+      <div class="seg" role="group" aria-label="動画の動き" id="mSeg">
+        <button class="btn" data-m="open" aria-pressed="true">ひらく</button>
+        <button class="btn" data-m="sway" aria-pressed="false">ゆらゆら</button>
+      </div>
+      <div class="seg" role="group" aria-label="動画の長さ" id="lSeg">
         <button class="btn" data-sec="3" aria-pressed="false">3秒</button>
         <button class="btn" data-sec="5" aria-pressed="true">5秒</button>
         <button class="btn" data-sec="8" aria-pressed="false">8秒</button>
@@ -110,26 +132,18 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 (() => {
 const $ = s => document.querySelector(s);
 const canvas = $('#view'), win = $('#win');
-const WORK = 512, FULL = 1600, FOV = 30, ZOOM = 1.08;
+const WORK = 512, FULL = 1600, FOV = 30, ZOOM = 1.0;
 const DIST = 0.5 / Math.tan(THREE.MathUtils.degToRad(FOV/2));
-
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
-renderer.setClearColor(0x000000, 1);
+renderer.setClearColor(0x0b0f17, 1);
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(FOV, 1, 0.01, 20);
+const camera = new THREE.PerspectiveCamera(FOV, 1, 0.01, 30);
 const group = new THREE.Group(); scene.add(group);
-
-const P = {depth:0.28, angle:22, tear:0.08};
+const P = {layers:5, depth:0.5, rim:2, angle:30, blur:0, focus:1, particle:'none', amount:200};
 let aspect = 1, title = '', work = null, loadToken = 0;
-let fgMesh = null, bgMesh = null;
-const tex = {fg:null, bg:null, fgD:null, bgD:null};
-
-// ---------- ステータス・トースト ----------
 function status(msg, warn){ const s=$('#status'); s.textContent = msg; s.classList.toggle('warn', !!warn); }
 let toastTimer;
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
-
-// ---------- 画像処理ユーティリティ ----------
 function scaledCanvas(src, maxSide, flatten){
   const w0 = src.naturalWidth || src.width, h0 = src.naturalHeight || src.height;
   const s = Math.min(1, maxSide / Math.max(w0, h0));
@@ -256,109 +270,224 @@ async function aiDepth(cv, onProg){
   } finally { URL.revokeObjectURL(url); }
 }
 
-// ---------- メッシュ生成 ----------
-function canvasFrom(rgba, w, h){ const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').putImageData(new ImageData(rgba,w,h),0,0); return c; }
-function depthCanvas(d, w, h){ const a=new Uint8ClampedArray(w*h*4); for (let i=0;i<w*h;i++){ const v=d[i]*255; a[i*4]=v; a[i*4+1]=v; a[i*4+2]=v; a[i*4+3]=255; } return canvasFrom(a,w,h); }
-function texFrom(c){ const t=new THREE.CanvasTexture(c); t.minFilter=THREE.LinearFilter; t.generateMipmaps=false; t.anisotropy=4; return t; }
-function makeGrid(d, w, h, ext, step, tear){
-  const u0=-ext, u1=1+ext;
-  const nx = Math.max(2, Math.round((w-1)*(u1-u0)/step)+1), ny = Math.max(2, Math.round((h-1)*(u1-u0)/step)+1);
-  const pos = new Float32Array(nx*ny*3), uv = new Float32Array(nx*ny*2), dz = new Float32Array(nx*ny);
-  for (let iy=0;iy<ny;iy++) for (let ix=0;ix<nx;ix++){
-    const u=u0+(u1-u0)*ix/(nx-1), v=u0+(u1-u0)*iy/(ny-1), i=iy*nx+ix;
-    const px=Math.min(w-1,Math.max(0,Math.round(u*(w-1)))), py=Math.min(h-1,Math.max(0,Math.round(v*(h-1))));
-    const z=d[py*w+px]; dz[i]=z;
-    pos[i*3]=(u-0.5)*aspect; pos[i*3+1]=0.5-v; pos[i*3+2]=z-0.5;
-    uv[i*2]=u; uv[i*2+1]=1-v;
+// ---------- 層まわりの処理 ----------
+function boxDilate(m, w, h, r){
+  const tmp = new Uint8Array(m.length), out = new Uint8Array(m.length);
+  for (let y=0;y<h;y++){ let last=-1e9;
+    for (let x=0;x<w;x++){ if (m[y*w+x]) last=x; }
+    for (let x=0;x<w;x++){ let v=0; const x0=Math.max(0,x-r), x1=Math.min(w-1,x+r); for (let k=x0;k<=x1;k++) if (m[y*w+k]){ v=1; break; } tmp[y*w+x]=v; } }
+  for (let x=0;x<w;x++) for (let y=0;y<h;y++){ let v=0; const y0=Math.max(0,y-r), y1=Math.min(h-1,y+r); for (let k=y0;k<=y1;k++) if (tmp[k*w+x]){ v=1; break; } out[y*w+x]=v; }
+  return out;
+}
+function kmeansLabels(d, w, h, n){
+  const sorted = Array.from(d).filter((_,i)=>i%7===0).sort((a,b)=>a-b);
+  let c = []; for (let k=0;k<n;k++) c.push(sorted[Math.floor((k+0.5)/n*(sorted.length-1))]);
+  const lab = new Uint8Array(w*h);
+  for (let it=0; it<12; it++){
+    const sum = new Float64Array(n), cnt = new Float64Array(n);
+    for (let i=0;i<w*h;i++){ let bi=0, bd=1e9; for (let k=0;k<n;k++){ const e=Math.abs(d[i]-c[k]); if (e<bd){ bd=e; bi=k; } } lab[i]=bi; sum[bi]+=d[i]; cnt[bi]++; }
+    for (let k=0;k<n;k++) if (cnt[k]) c[k]=sum[k]/cnt[k];
+    const order = c.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]); c = order.map(o=>o[0]);
   }
-  const idx = [];
-  // 奥行きの段差（2px幅で見る）がある頂点を含む三角形は張らない＝切り離す
-  let E = null;
-  if (tear && nx === w && ny === h){
-    E = new Uint8Array(w*h); const k = 2;
-    for (let y=0;y<h;y++) for (let x=0;x<w;x++){ const i=y*w+x, v=d[i];
-      const xa=Math.max(0,x-k), xb=Math.min(w-1,x+k), ya=Math.max(0,y-k), yb=Math.min(h-1,y+k);
-      const m = Math.max(Math.abs(d[y*w+xa]-d[y*w+xb]), Math.abs(d[ya*w+x]-d[yb*w+x]));
-      if (m > tear) E[i] = 1; }
+  for (let i=0;i<w*h;i++){ let bi=0, bd=1e9; for (let k=0;k<n;k++){ const e=Math.abs(d[i]-c[k]); if (e<bd){ bd=e; bi=k; } } lab[i]=bi; }
+  // 多数決でゴミを掃除
+  for (let pass=0; pass<2; pass++){
+    const src = lab.slice();
+    const cnt = new Uint8Array(n);
+    for (let y=0;y<h;y++) for (let x=0;x<w;x++){
+      cnt.fill(0);
+      for (let dy=-2;dy<=2;dy++) for (let dx=-2;dx<=2;dx++){ const xx=Math.min(w-1,Math.max(0,x+dx)), yy=Math.min(h-1,Math.max(0,y+dy)); cnt[src[yy*w+xx]]++; }
+      let bi=src[y*w+x], bc=0; for (let k=0;k<n;k++) if (cnt[k]>bc){ bc=cnt[k]; bi=k; } lab[y*w+x]=bi;
+    }
   }
-  const ok = (a,b,c) => !E || !(E[a]||E[b]||E[c]);
-  for (let iy=0;iy<ny-1;iy++) for (let ix=0;ix<nx-1;ix++){
-    const a=iy*nx+ix, b=a+1, c=a+nx, e=c+1;
-    if (ok(a,c,b)) idx.push(a,c,b);
-    if (ok(b,c,e)) idx.push(b,c,e);
+  return lab;
+}
+function maskCanvas(m, w, h, rgb){
+  const a = new Uint8ClampedArray(w*h*4);
+  for (let i=0;i<w*h;i++){ a[i*4]=rgb[0]; a[i*4+1]=rgb[1]; a[i*4+2]=rgb[2]; a[i*4+3]=m[i]?255:0; }
+  const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').putImageData(new ImageData(a,w,h),0,0); return c;
+}
+function rgbaCanvas(a, w, h){ const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').putImageData(new ImageData(a,w,h),0,0); return c; }
+
+// 層ごとの画像（フル解像度）を作る
+function makeLayers(){
+  const {w, h, rgba, d, full} = work;
+  const n = P.layers, side = Math.max(w,h);
+  const lab = kmeansLabels(d, w, h, n);
+  const FW = full.width, FH = full.height;
+  const band = Math.max(6, Math.round(side*0.06)), rim = Math.round(P.rim);
+  const dummy = new Float32Array(w*h);
+  const out = [];
+  for (let k=0;k<n;k++){
+    const mk = new Uint8Array(w*h); let count=0;
+    for (let i=0;i<w*h;i++) if (lab[i]===k){ mk[i]=1; count++; }
+    if (!count) continue;
+    const unknown = new Uint8Array(w*h); for (let i=0;i<w*h;i++) unknown[i] = mk[i]?0:1;
+    const fill = pushPull(rgba, dummy, unknown, w, h).rgba;
+    const c = document.createElement('canvas'); c.width=FW; c.height=FH; const g=c.getContext('2d');
+    g.imageSmoothingQuality='high';
+    g.drawImage(rgbaCanvas(fill,w,h),0,0,FW,FH);
+    const A = document.createElement('canvas'); A.width=FW; A.height=FH; const ga=A.getContext('2d');
+    ga.drawImage(full,0,0); ga.globalCompositeOperation='destination-in'; ga.drawImage(maskCanvas(mk,w,h,[255,255,255]),0,0,FW,FH);
+    g.drawImage(A,0,0);
+    if (k>0){
+      const grown = boxDilate(mk, w, h, band), ext = new Uint8Array(w*h);
+      for (let i=0;i<w*h;i++) ext[i] = mk[i] || (grown[i] && lab[i]>k) ? 1 : 0;
+      g.globalCompositeOperation='destination-in'; g.drawImage(maskCanvas(ext,w,h,[255,255,255]),0,0,FW,FH);
+      if (rim>0){ g.globalCompositeOperation='destination-over'; g.drawImage(maskCanvas(dilate(ext,w,h,rim),w,h,[255,255,255]),0,0,FW,FH); }
+      g.globalCompositeOperation='source-over';
+    }
+    out.push(c);
+  }
+  return out;
+}
+
+// ---------- シーン ----------
+const cardVS = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
+const cardFS = `
+uniform sampler2D map; uniform vec2 texel; uniform float blur; uniform float shadow; uniform float opacity; varying vec2 vUv;
+void main(){
+  vec4 acc=vec4(0.);
+  if(blur<0.5){ vec4 c=texture2D(map,vUv); acc=vec4(c.rgb*c.a,c.a); }
+  else { for(int i=0;i<16;i++){ float fi=float(i); float r=sqrt((fi+0.5)/16.)*blur; float a=fi*2.39996;
+    vec4 c=texture2D(map,vUv+vec2(cos(a),sin(a))*r*texel); acc+=vec4(c.rgb*c.a,c.a); } acc/=16.; }
+  if(acc.a<0.05) discard;
+  if(shadow>0.5){ gl_FragColor=vec4(0.,0.,0.,acc.a*opacity); return; }
+  gl_FragColor=vec4(acc.rgb/max(acc.a,1e-4),acc.a);
+}`;
+function cardMat(texture, shadow){
+  return new THREE.ShaderMaterial({vertexShader:cardVS, fragmentShader:cardFS, transparent:true, depthWrite:!shadow, side:THREE.DoubleSide,
+    uniforms:{map:{value:texture}, texel:{value:new THREE.Vector2(1/texture.image.width,1/texture.image.height)}, blur:{value:shadow?6:0}, shadow:{value:shadow?1:0}, opacity:{value:0.35}}});
+}
+let cards = [];
+function clearCards(){
+  cards.forEach(c => { group.remove(c.pivot); c.mesh.geometry.dispose(); c.mesh.material.dispose(); c.tex.dispose(); if (c.shadow) c.shadow.material.dispose(); });
+  cards = [];
+}
+function buildScene(){
+  if (!work) return;
+  clearCards();
+  const layers = makeLayers();
+  layers.forEach((cv, i) => {
+    const t = new THREE.CanvasTexture(cv); t.minFilter=THREE.LinearFilter; t.generateMipmaps=false; t.anisotropy=4;
+    const geo = new THREE.PlaneGeometry(aspect, 1);
+    const mesh = new THREE.Mesh(geo, cardMat(t, false)); mesh.renderOrder = i*2;
+    const pivot = new THREE.Group(); pivot.add(mesh);
+    let shadow = null;
+    if (i>0){ shadow = new THREE.Mesh(geo, cardMat(t, true)); shadow.renderOrder = i*2-1; pivot.add(shadow); }
+    group.add(pivot);
+    cards.push({pivot, mesh, shadow, tex:t, index:i, count:layers.length});
+  });
+  placeCards(); applyBlur();
+}
+function cardZ(i, n){ return n<=1 ? 0 : (i/(n-1) - 0.5) * P.depth; }
+function placeCards(){
+  const dist = DIST/ZOOM;
+  cards.forEach(c => {
+    const z = cardZ(c.index, c.count), s = (dist - z)/dist;
+    c.s = s;
+    c.pivot.position.set(0, -0.5*s, z);
+    c.mesh.scale.set(s, s, 1); c.mesh.position.set(0, 0.5*s, 0);
+    if (c.shadow){ const gap = P.depth/Math.max(1,c.count-1);
+      c.shadow.scale.set(s, s, 1); c.shadow.position.set(0.012*s, 0.5*s-0.014*s, -Math.min(0.03, gap*0.5)); }
+  });
+}
+function applyBlur(){
+  cards.forEach(c => {
+    const zn = c.count<=1 ? 1 : c.index/(c.count-1);
+    c.mesh.material.uniforms.blur.value = Math.abs(zn - P.focus) * P.blur * 22;
+  });
+}
+// 開くアニメ
+const OPEN_MS = 2200;
+let openStart = -1e9;
+function easeOutBack(t){ const c1=1.4, c3=c1+1; return 1 + c3*Math.pow(t-1,3) + c1*Math.pow(t-1,2); }
+function openAngle(i, n, now){
+  const p = (now - openStart)/OPEN_MS, span = 0.45, delay = n>1 ? i/(n-1)*(1-span) : 0;
+  const t = Math.min(1, Math.max(0, (p - delay)/span));
+  return -Math.PI/2 * (1 - easeOutBack(t));
+}
+
+// ---------- パーティクル ----------
+function spriteTex(kind){
+  const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d');
+  if (kind==='sakura'){ g.fillStyle='#ffc6d6'; g.beginPath(); g.ellipse(32,32,14,24,0.5,0,7); g.fill(); g.fillStyle='#ff9fbb'; g.beginPath(); g.ellipse(32,32,5,14,0.5,0,7); g.fill(); }
+  else if (kind==='snow'){ const gr=g.createRadialGradient(32,32,0,32,32,30); gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(0.5,'rgba(255,255,255,.8)'); gr.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=gr; g.fillRect(0,0,64,64); }
+  else if (kind==='kira'){ const gr=g.createRadialGradient(32,32,0,32,32,12); gr.addColorStop(0,'rgba(255,255,230,1)'); gr.addColorStop(1,'rgba(255,240,180,0)'); g.fillStyle=gr; g.fillRect(0,0,64,64);
+    g.fillStyle='rgba(255,250,220,.95)'; g.beginPath(); g.moveTo(32,2); g.lineTo(35,29); g.lineTo(62,32); g.lineTo(35,35); g.lineTo(32,62); g.lineTo(29,35); g.lineTo(2,32); g.lineTo(29,29); g.fill(); }
+  else { g.fillStyle='#fff'; g.fillRect(20,12,24,40); }
+  const t=new THREE.CanvasTexture(c); return t;
+}
+let particles = null;
+function buildParticles(){
+  if (particles){ group.remove(particles.points); particles.points.geometry.dispose(); particles.points.material.map.dispose(); particles.points.material.dispose(); particles = null; }
+  if (P.particle === 'none') return;
+  const n = Math.round(P.amount), pos = new Float32Array(n*3), col = new Float32Array(n*3), meta = [];
+  const pal = [[1,.42,.5],[1,.82,.4],[.45,.75,1],[.6,.9,.55],[1,1,1],[.85,.6,1]];
+  for (let i=0;i<n;i++){
+    meta.push({ph:Math.random()*6.28, sp:0.5+Math.random(), sx:0.3+Math.random()*0.7});
+    resetP(pos, i, true);
+    const cc = P.particle==='confetti' ? pal[i%pal.length] : [1,1,1]; col.set(cc, i*3);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos,3));
-  g.setAttribute('uv', new THREE.BufferAttribute(uv,2));
-  g.setIndex(new THREE.BufferAttribute(new Uint32Array(idx),1));
-  return g;
+  g.setAttribute('color', new THREE.BufferAttribute(col,3));
+  const size = {sakura:0.045, snow:0.03, kira:0.06, confetti:0.035}[P.particle];
+  const m = new THREE.PointsMaterial({map:spriteTex(P.particle), size, sizeAttenuation:true, transparent:true, depthWrite:false, vertexColors:true, alphaTest:0.02,
+    blending: P.particle==='kira' ? THREE.AdditiveBlending : THREE.NormalBlending});
+  const points = new THREE.Points(g, m); points.renderOrder = 1000; points.frustumCulled = false;
+  group.add(points);
+  particles = {points, meta, n};
 }
-function disposeMesh(m){ if (!m) return; group.remove(m); m.geometry.dispose(); m.material.dispose(); }
-
-function build(){
-  if (!work) return;
-  const {w, h, rgba, d} = work;
-  // 穴埋めの元を「奥にある画素」だけにするため、近い側の画素を2つの範囲で広めに除外する
-  const side = Math.max(w,h);
-  const dmin1 = minFilter(d, w, h, Math.max(4, Math.round(side*0.06)));
-  const dmin2 = minFilter(d, w, h, Math.max(8, Math.round(side*0.16)));
-  let mask = new Uint8Array(w*h);
-  for (let i=0;i<w*h;i++) mask[i] = (d[i] > dmin1[i] + P.tear*0.7 || d[i] > dmin2[i] + P.tear*1.6) ? 1 : 0;
-  mask = dilate(mask, w, h, 3);
-  const filled = pushPull(rgba, d, mask, w, h);
-  const bgd = boxBlur(filled.d, w, h, 2);
-  for (const k of ['bg','fgD','bgD']) if (tex[k]) tex[k].dispose();
-  tex.bg = texFrom(canvasFrom(filled.rgba, w, h));
-  tex.fgD = texFrom(depthCanvas(d, w, h));
-  tex.bgD = texFrom(depthCanvas(bgd, w, h));
-  disposeMesh(fgMesh); disposeMesh(bgMesh);
-  fgMesh = new THREE.Mesh(makeGrid(d, w, h, 0, 1, P.tear), new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
-  bgMesh = new THREE.Mesh(makeGrid(bgd, w, h, 0.15, 2, 0), new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
-  bgMesh.position.z = -0.004;
-  group.add(bgMesh, fgMesh);
-  applyMaps(); applyDepth();
+function resetP(pos, i, anyY){
+  const zr = P.depth*0.5 + 0.12;
+  pos[i*3] = (Math.random()-0.5)*aspect*1.3;
+  pos[i*3+1] = anyY ? Math.random()*1.3-0.65 : (P.particle==='kira' ? -0.65 : 0.65);
+  pos[i*3+2] = (Math.random()*2-1)*zr;
 }
-function applyMaps(){
-  if (!fgMesh) return;
-  const sd = $('#showDepth').checked;
-  fgMesh.material.map = sd ? tex.fgD : tex.fg; bgMesh.material.map = sd ? tex.bgD : tex.bg;
-  fgMesh.material.needsUpdate = bgMesh.material.needsUpdate = true;
+function stepParticles(dt, t){
+  if (!particles) return;
+  const pos = particles.points.geometry.attributes.position.array, k = P.particle;
+  for (let i=0;i<particles.n;i++){
+    const m = particles.meta[i];
+    if (k==='kira'){ pos[i*3+1] += dt*0.04*m.sp; pos[i*3] += Math.sin(t*0.7+m.ph)*dt*0.01; if (pos[i*3+1]>0.65) resetP(pos,i,false); }
+    else { const v = k==='snow' ? 0.06 : 0.1;
+      pos[i*3+1] -= dt*v*m.sp; pos[i*3] += Math.sin(t*1.3*m.sx+m.ph)*dt*0.06 + dt*(k==='sakura'?0.03:0);
+      if (pos[i*3+1] < -0.65) resetP(pos,i,false); }
+  }
+  particles.points.geometry.attributes.position.needsUpdate = true;
 }
-function applyDepth(){ if (fgMesh){ fgMesh.scale.z = P.depth; bgMesh.scale.z = P.depth; } }
 
 // ---------- 読み込み ----------
 async function load(src, name, presetDepthCanvas){
   const token = ++loadToken;
   title = name;
-  const full = scaledCanvas(src, FULL, true);
-  const wc = scaledCanvas(src, WORK, true);
-  const raw = scaledCanvas(src, WORK, false);
+  const full = scaledCanvas(src, FULL, true), wc = scaledCanvas(src, WORK, true), raw = scaledCanvas(src, WORK, false);
   aspect = full.width / full.height;
-  if (tex.fg) tex.fg.dispose();
-  tex.fg = texFrom(full);
-  const w = wc.width, h = wc.height;
-  const rgba = wc.getContext('2d').getImageData(0,0,w,h).data;
+  const w = wc.width, h = wc.height, rgba = wc.getContext('2d').getImageData(0,0,w,h).data;
   layout();
   if (presetDepthCanvas){
-    const dc = scaledCanvas(presetDepthCanvas, WORK, true);
-    const dd = dc.getContext('2d').getImageData(0,0,dc.width,dc.height).data;
-    work = {w, h, rgba, d: normalize(resample(dd, dc.width, dc.height, 4, w, h))};
-    build(); status('見本は奥行きデータ付きです。自分の画像はAIで奥行きを推定します。');
+    const dc = scaledCanvas(presetDepthCanvas, WORK, true), dd = dc.getContext('2d').getImageData(0,0,dc.width,dc.height).data;
+    work = {w, h, rgba, full, d: normalize(resample(dd, dc.width, dc.height, 4, w, h))};
+    rebuild(); openStart = performance.now();
+    status('見本は奥行きデータ付きです。自分の画像はAIで奥行きを推定します。');
     return;
   }
-  work = {w, h, rgba, d: pseudoDepth(raw.getContext('2d').getImageData(0,0,w,h).data, w, h)};
-  build();
-  status('簡易の奥行きで表示中。AIで推定しています…');
+  clearCards();
+  work = {w, h, rgba, full, d: pseudoDepth(raw.getContext('2d').getImageData(0,0,w,h).data, w, h)};
+  status('AIで奥行きを推定しています…');
   try {
     const d = await aiDepth(wc, p => { if (token===loadToken) status(`AIモデルを読み込み中… ${p}%（初回のみ）`); });
     if (token !== loadToken) return;
-    work.d = boxBlur(d, work.w, work.h, 1); build(); status('AIで推定した奥行きで表示中');
+    work.d = boxBlur(d, w, h, 1); rebuild(); openStart = performance.now(); status('AIで推定した奥行きで表示中');
   } catch (e) {
     console.warn(e);
     if (token !== loadToken) return;
+    rebuild(); openStart = performance.now();
     status('この環境ではAIの奥行き推定を使えないので、簡易の奥行きで表示しています。GitHub Pages などに置くとAI推定が使えます。', true);
   }
 }
+function rebuild(){ buildScene(); buildParticles(); }
 function loadFile(file){
   if (!file || !file.type.startsWith('image/')){ toast('画像ファイルをえらんでください'); return; }
   const url = URL.createObjectURL(file), img = new Image();
@@ -373,17 +502,12 @@ document.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
 
 // ---------- 表示サイズ ----------
 let recording = null;
-function layout(){
-  win.style.width = `min(100%, calc(min(70vh, 780px) * ${aspect}))`;
-  win.style.aspectRatio = `${aspect}`;
-  resize();
-}
+function layout(){ win.style.width = `min(100%, calc(min(70vh, 780px) * ${aspect}))`; win.style.aspectRatio = `${aspect}`; resize(); }
 function resize(){
   if (recording) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const w = Math.max(2, Math.round(win.clientWidth*dpr)), h = Math.max(2, Math.round(win.clientWidth/aspect*dpr));
-  renderer.setSize(w, h, false);
-  camera.aspect = w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix();
 }
 new ResizeObserver(resize).observe(win);
 
@@ -392,32 +516,24 @@ let yaw=0, pitch=0, tyaw=0, tpitch=0, manualUntil=0, gyroOn=false;
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 function onPoint(e){
   const r = canvas.getBoundingClientRect();
-  tyaw = clamp(((e.clientX-r.left)/r.width)*2-1, -1, 1);
-  tpitch = clamp(-(((e.clientY-r.top)/r.height)*2-1), -1, 1);
+  tyaw = clamp(((e.clientX-r.left)/r.width)*2-1, -1, 1); tpitch = clamp(-(((e.clientY-r.top)/r.height)*2-1), -1, 1);
   manualUntil = performance.now() + 2500;
 }
 canvas.addEventListener('pointermove', e => { if (e.pointerType==='mouse' || e.buttons) onPoint(e); });
 canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); onPoint(e); });
-canvas.addEventListener('pointerleave', e => { if (e.pointerType==='mouse'){ manualUntil = performance.now() + 800; } });
-
 const gyroBtn = $('#gyro');
 if ('DeviceOrientationEvent' in window && matchMedia('(pointer:coarse)').matches) gyroBtn.hidden = false;
 gyroBtn.addEventListener('click', async () => {
   try {
     if (typeof DeviceOrientationEvent.requestPermission === 'function'){
-      if (await DeviceOrientationEvent.requestPermission() !== 'granted'){ toast('傾きセンサーが使えませんでした'); return; }
-    }
+      if (await DeviceOrientationEvent.requestPermission() !== 'granted'){ toast('傾きセンサーが使えませんでした'); return; } }
     if (!gyroOn){
-      window.addEventListener('deviceorientation', e => {
-        if (e.gamma == null) return;
-        tyaw = clamp(e.gamma/25, -1, 1); tpitch = clamp(-(e.beta-45)/25, -1, 1);
-        manualUntil = performance.now() + 2500;
-      });
+      window.addEventListener('deviceorientation', e => { if (e.gamma == null) return;
+        tyaw = clamp(e.gamma/25, -1, 1); tpitch = clamp(-(e.beta-45)/25, -1, 1); manualUntil = performance.now() + 2500; });
       gyroOn = true; toast('スマホを傾けてみてください');
     }
   } catch { toast('傾きセンサーが使えませんでした'); }
 });
-
 const autoEl = $('#auto');
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) autoEl.checked = false;
 function setCamera(){
@@ -425,39 +541,50 @@ function setCamera(){
   camera.position.set(dist*Math.sin(y)*Math.cos(p), dist*Math.sin(p), dist*Math.cos(y)*Math.cos(p));
   camera.lookAt(0,0,0);
 }
+const smooth = (a,b,x) => { const t = clamp((x-a)/(b-a),0,1); return t*t*(3-2*t); };
+let last = performance.now();
 function loop(now){
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
   if (recording){
-    const u = Math.min(1, (now - recording.start) / recording.ms);
-    yaw = Math.sin(u*Math.PI*2)*0.9; pitch = Math.sin(u*Math.PI*4)*0.4;
+    const el = now - recording.start, u = Math.min(1, el/recording.ms);
+    if (recording.mode === 'sway'){ yaw = Math.sin(u*Math.PI*2)*0.9; pitch = Math.sin(u*Math.PI*4)*0.4; }
+    else { const r = smooth(0.3, 1, el/OPEN_MS); yaw = Math.sin((el-OPEN_MS*0.6)/1000*1.1)*0.7*r; pitch = 0.75 - 0.5*r; }
     if (u >= 1 && recording.rec.state === 'recording') recording.rec.stop();
   } else {
     if (autoEl.checked && now > manualUntil){ const t=now*0.001; tyaw=Math.sin(t*0.6)*0.8; tpitch=Math.sin(t*1.2)*0.35; }
     yaw += (tyaw-yaw)*0.12; pitch += (tpitch-pitch)*0.12;
   }
+  cards.forEach(c => c.pivot.rotation.x = openAngle(c.index, c.count, now));
+  stepParticles(dt, now/1000);
   setCamera();
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 
-// ---------- スライダー ----------
+// ---------- 操作パネル ----------
 const bind = (id, out, key, fmt, after) => {
-  const el = $(id), o = $(out);
-  const show = () => o.textContent = fmt(P[key]);
+  const el = $(id), o = $(out), show = () => o.textContent = fmt(P[key]);
   P[key] = parseFloat(el.value); show();
   el.addEventListener('input', () => { P[key] = parseFloat(el.value); show(); after && after(); });
 };
-let tearTimer;
-bind('#pDepth', '#oDepth', 'depth', v => v.toFixed(2), applyDepth);
+let rbTimer; const later = fn => () => { clearTimeout(rbTimer); rbTimer = setTimeout(fn, 150); };
+bind('#pLayers', '#oLayers', 'layers', v => `${v}枚`, later(() => { buildScene(); }));
+bind('#pDepth', '#oDepth', 'depth', v => v.toFixed(2), () => { placeCards(); buildParticles(); });
+bind('#pRim', '#oRim', 'rim', v => v ? `${v}` : 'なし', later(() => { buildScene(); }));
 bind('#pAngle', '#oAngle', 'angle', v => `±${v}°`);
-bind('#pTear', '#oTear', 'tear', v => v.toFixed(2), () => { clearTimeout(tearTimer); tearTimer = setTimeout(build, 120); });
-$('#showDepth').addEventListener('change', applyMaps);
+bind('#pBlur', '#oBlur', 'blur', v => v ? v.toFixed(2) : 'なし', applyBlur);
+bind('#pFocus', '#oFocus', 'focus', v => v.toFixed(2), applyBlur);
+bind('#pAmount', '#oAmount', 'amount', v => `${v}`, later(buildParticles));
+$('#reopen').addEventListener('click', () => { openStart = performance.now(); });
+const segPick = (box, attr, fn) => box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x===b)); fn(b.dataset[attr]); }));
+segPick($('#pSeg'), 'p', v => { P.particle = v; buildParticles(); });
+let vmode = 'open', sec = 5;
+segPick($('#mSeg'), 'm', v => vmode = v);
+segPick($('#lSeg'), 'sec', v => sec = +v);
 
 // ---------- 動画書き出し ----------
-let sec = 5;
-document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x===b)); sec = +b.dataset.sec;
-}));
 const inViewer = !!(window.claude && typeof window.claude.use === 'function');
 const dlPromise = inViewer ? window.claude.use('downloads').catch(() => null) : null;
 async function saveFile(name, blob){
@@ -472,7 +599,7 @@ async function saveFile(name, blob){
   }
 }
 $('#recBtn').addEventListener('click', () => {
-  if (recording || !fgMesh) return;
+  if (recording || !cards.length) return;
   if (!window.MediaRecorder || !canvas.captureStream){ toast('このブラウザは動画の書き出しに対応していません'); return; }
   const type = ['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm'].find(t => MediaRecorder.isTypeSupported(t));
   if (!type){ toast('このブラウザは動画の書き出しに対応していません'); return; }
@@ -489,13 +616,14 @@ $('#recBtn').addEventListener('click', () => {
     resize();
     const blob = new Blob(chunks, {type});
     if (!blob.size){ toast('動画を書き出せませんでした'); return; }
-    await saveFile(`${title}_のぞきこみ.${ext}`, blob);
+    await saveFile(`${title}_とびだすえほん.${ext}`, blob);
   };
-  recording = {rec, start: performance.now(), ms: sec*1000};
-  $('#rec').hidden = false; $('#recBtn').disabled = true; $('#recBtn').textContent = `録画中…（${sec}秒）`;
+  const now = performance.now();
+  if (vmode === 'open') openStart = now;
+  recording = {rec, start: now, ms: Math.max(sec*1000, vmode==='open' ? OPEN_MS+1000 : 0), mode: vmode};
+  $('#rec').hidden = false; $('#recBtn').disabled = true; $('#recBtn').textContent = '録画中…';
   rec.start(200);
 });
-
 // ---------- 見本 ----------
 function sample(){
   const W=1000, H=750;
